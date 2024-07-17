@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PageFlip PDF</title>
+    <title>PageFlip PDF Newsletter</title>
     <link rel="stylesheet" href="https://unpkg.com/page-flip/dist/js/page-flip.browser.css">
     <style>
         body {
@@ -15,8 +15,8 @@
             background-color: #f0f0f0;
         }
         #flipbook {
-            width: 1000px;
-            height: 600px;
+            width: 80%;
+            height: 80%;
         }
     </style>
 </head>
@@ -28,39 +28,84 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.worker.min.js"></script>
 
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            async function loadPDF(pdfUrl) {
-                const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
-                const pages = [];
+        let pageFlip;
+        let currentOrientation;
 
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    const page = await pdf.getPage(i);
-                    const viewport = page.getViewport({ scale: 1.5 });
-                    const canvas = document.createElement("canvas");
-                    const context = canvas.getContext("2d");
+        async function loadPDF(pdfUrl) {
+            const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+            const scale = 1.5;
+            const renderPage = async (pageNum) => {
+                const page = await pdf.getPage(pageNum);
+                const viewport = page.getViewport({ scale: scale });
+                const canvas = document.createElement("canvas");
+                const context = canvas.getContext("2d");
 
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
 
-                    await page.render({ canvasContext: context, viewport: viewport }).promise;
-                    pages.push(canvas.toDataURL());
+                await page.render({ canvasContext: context, viewport: viewport }).promise;
+                return canvas.toDataURL();
+            };
+
+            const pages = await Promise.all(
+                Array.from({ length: pdf.numPages }, (_, i) => renderPage(i + 1))
+            );
+
+            return pages;
+        }
+
+        function initializePageFlip(pages, isLandscape) {
+            const container = document.getElementById("flipbook");
+            container.innerHTML = ''; // Clear the container before reinitializing
+
+            const flipWidth = isLandscape ? container.clientWidth : container.clientWidth * 0.75;
+            const flipHeight = container.clientHeight;
+            const pageWidth = isLandscape ? (flipWidth / 2) : flipWidth;
+            const pageHeight = flipHeight;
+
+            pageFlip = new St.PageFlip(container, {
+                width: pageWidth,
+                height: pageHeight,
+                size: "stretch",
+                minWidth: 300,
+                maxWidth: 1200,
+                minHeight: 400,
+                maxHeight: 1600,
+                maxShadowOpacity: 0.5,
+                showCover: true,
+                mobileScrollSupport: false,
+                usePortrait: !isLandscape, // Adjust orientation
+                showPageCorners: true, // Show corners of pages
+                flippingTime: 1000, // Adjust the flipping time
+            });
+
+            if (isLandscape) {
+                // Split pages into pairs for landscape mode
+                const pairedPages = [];
+                for (let i = 0; i < pages.length; i += 2) {
+                    pairedPages.push(pages.slice(i, i + 2));
                 }
-
-                return pages;
-            }
-
-            loadPDF("newsletter").then(pages => {
-                const container = document.getElementById("flipbook");
-                const pageFlip = new St.PageFlip(container, {
-                    width: 1000, 
-                    height: 600, 
-                    size: "fixed",
-                    maxShadowOpacity: 0.5,
-                    showCover: true,
-                    mobileScrollSupport: false
-                });
-
+                pageFlip.loadFromImages(pairedPages.flat());
+            } else {
+                // Load single pages for portrait mode
                 pageFlip.loadFromImages(pages);
+            }
+        }
+
+        function handleResize(pages) {
+            const isLandscape = window.innerWidth > window.innerHeight;
+            console.log(`Orientation changed: ${isLandscape ? 'Landscape' : 'Portrait'}`);
+            if (currentOrientation !== isLandscape) {
+                currentOrientation = isLandscape;
+                initializePageFlip(pages, isLandscape);
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            loadPDF("newsletter").then((pages) => {
+                currentOrientation = window.innerWidth > window.innerHeight;
+                initializePageFlip(pages, currentOrientation);
+                window.addEventListener('resize', () => handleResize(pages));
             });
         });
     </script>
