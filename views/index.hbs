@@ -1,2 +1,68 @@
-<h1>{{title}}</h1>
-<p>Welcome to {{title}}</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PageFlip PDF</title>
+    <link rel="stylesheet" href="https://unpkg.com/page-flip/dist/js/page-flip.browser.css">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        #flipbook {
+            width: 1000px;
+            height: 600px;
+        }
+    </style>
+</head>
+<body>
+    <div id="flipbook" class="container"></div>
+
+    <script src="https://unpkg.com/page-flip/dist/js/page-flip.browser.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.worker.min.js"></script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            async function loadPDF(pdfUrl) {
+                const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+                const pages = [];
+
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const viewport = page.getViewport({ scale: 1.5 });
+                    const canvas = document.createElement("canvas");
+                    const context = canvas.getContext("2d");
+
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+
+                    await page.render({ canvasContext: context, viewport: viewport }).promise;
+                    pages.push(canvas.toDataURL());
+                }
+
+                return pages;
+            }
+
+            loadPDF("newsletter").then(pages => {
+                const container = document.getElementById("flipbook");
+                const pageFlip = new St.PageFlip(container, {
+                    width: 1000, 
+                    height: 600, 
+                    size: "fixed",
+                    maxShadowOpacity: 0.5,
+                    showCover: true,
+                    mobileScrollSupport: false
+                });
+
+                pageFlip.loadFromImages(pages);
+            });
+        });
+    </script>
+</body>
+</html>
