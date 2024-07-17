@@ -30,7 +30,7 @@
     <script>
         let pageFlip;
         let currentOrientation;
-
+        let widthFactor = {value: 2.5, modified: false}; 
         async function loadPDF(pdfUrl) {
             const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
             const scale = 1.5;
@@ -57,10 +57,13 @@
         function initializePageFlip(pages, isLandscape) {
             const container = document.getElementById("flipbook");
             container.innerHTML = ''; // Clear the container before reinitializing
-
-            const flipWidth = isLandscape ? container.clientWidth : container.clientWidth * 0.75;
-            const flipHeight = container.clientHeight;
-            const pageWidth = isLandscape ? (flipWidth / 2) : flipWidth;
+            const flipWidth = isLandscape ? container.clientWidth : container.clientWidth * widthFactor.value; // Adjust the width for portrait mode
+            if(!widthFactor.modified){
+                widthFactor.value = 0.8;
+                widthFactor.modified = true;
+            }
+            const flipHeight = container.clientHeight*1.5;
+            const pageWidth = flipWidth
             const pageHeight = flipHeight;
 
             pageFlip = new St.PageFlip(container, {
@@ -104,6 +107,7 @@
         document.addEventListener("DOMContentLoaded", function() {
             loadPDF("newsletter").then((pages) => {
                 currentOrientation = window.innerWidth > window.innerHeight;
+                console.log(`Initial Orientation: ${currentOrientation ? 'Landscape' : 'Portrait'}`);
                 initializePageFlip(pages, currentOrientation);
                 window.addEventListener('resize', () => handleResize(pages));
             });
